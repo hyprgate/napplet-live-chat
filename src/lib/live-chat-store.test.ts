@@ -1,4 +1,4 @@
-// napps/live-chat/src/lib/live-chat-store.test.ts
+// napplets/live-chat/src/lib/live-chat-store.test.ts
 // Unit tests for createLiveChatStore — kind 1311 ingest, zap rendering, tab model.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

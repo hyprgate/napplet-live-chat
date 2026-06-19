@@ -1,4 +1,4 @@
-// napps/live-chat/src/lib/time.ts
+// napplets/live-chat/src/lib/time.ts
 // Relative "time-ago" formatting for chat timestamps (req 12).
 
 /** Compact relative timestamp: "now", "12s", "5m", "3h", "2d", else a short date. */

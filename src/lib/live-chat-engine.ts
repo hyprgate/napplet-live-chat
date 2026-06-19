@@ -1,4 +1,4 @@
-// napps/live-chat/src/lib/live-chat-engine.ts
+// napplets/live-chat/src/lib/live-chat-engine.ts
 // Pure / stateless live-chat logic, split out of the store factory.
 // Functions operate on an explicit LiveChatContext so they stay
 // vitest-importable and keep createLiveChatStore small.

@@ -1,6 +1,6 @@
-// napps/live-chat/src/lib/types.ts
+// napplets/live-chat/src/lib/types.ts
 // Live Chat types — focused on NIP-53 stream / radio live chat (kind 1311).
-// No DMs, no NIP-29 groups (those lived in the now-removed napps/chat).
+// No DMs, no NIP-29 groups (those lived in the now-removed napplets/chat).
 
 import type { NostrEvent } from '@hyprgate/types';
 

@@ -1,10 +1,10 @@
-// napps/live-chat/src/lib/live-chat-store.ts
+// napplets/live-chat/src/lib/live-chat-store.ts
 // Live-chat state machine — pure TypeScript, no Svelte runes (vitest-importable).
 //
 // Focused on NIP-53 stream / radio live chat (kind 1311) + zap rendering
 // (kind 9735). Relay ops route through the shell pseudo-relay via @napplet/sdk.
 //
-// Unlike the removed napps/chat (single active-tab subscription), live-chat keeps
+// Unlike the removed napplets/chat (single active-tab subscription), live-chat keeps
 // ONE subscription per open tab so background tabs accrue messages + unread counts.
 //
 // All state-mutating logic lives in ./live-chat-engine and operates on an explicit
