@@ -19,8 +19,15 @@ const mockPublish = vi.mocked(relay.publish);
 
 const STREAM = '30311:hostpubkey:main';
 
-function chatEvent(id: string, createdAt: number, content = `msg ${id}`, pubkey = 'author1', addr = STREAM): NostrEvent {
-  return { id, kind: 1311, pubkey, created_at: createdAt, tags: [['a', addr]], content, sig: 'sig' };
+function chatEvent(
+  id: string,
+  createdAt: number,
+  content = `msg ${id}`,
+  pubkey = 'author1',
+  addr = STREAM,
+  tags: string[][] = [],
+): NostrEvent {
+  return { id, kind: 1311, pubkey, created_at: createdAt, tags: [['a', addr], ...tags], content, sig: 'sig' };
 }
 
 function zapEvent(id: string, createdAt: number, sats: number, sender = 'zapper1', addr = STREAM): NostrEvent {
@@ -72,6 +79,19 @@ describe('createLiveChatStore', () => {
     const tab = store.state.tabs[0]!;
     expect(tab.messages.map((m) => m.id)).toEqual(['m1', 'm2']); // chronological
     expect(tab.messages.every((m) => m.kind === 'chat')).toBe(true);
+  });
+
+  it('preserves kind-1311 tags for NIP-30 custom emoji rendering', () => {
+    const store = createLiveChatStore();
+    store.openStream(STREAM, 'Cool Stream', []);
+    store.ingestEvent(chatEvent('m1', 1000, 'hello :blobcat:', 'author1', STREAM, [
+      ['emoji', 'blobcat', 'https://emoji.example/blobcat.png'],
+    ]));
+
+    expect(store.state.tabs[0]!.messages[0]!.tags).toEqual([
+      ['a', STREAM],
+      ['emoji', 'blobcat', 'https://emoji.example/blobcat.png'],
+    ]);
   });
 
   it('renders kind-9735 zaps with sats amount in the matching tab', () => {

@@ -12,6 +12,8 @@ export interface LiveChatMessage {
   pubkey: string;
   /** Message text (chat content, or zap comment). */
   content: string;
+  /** Event tags retained for NIP-30 custom emoji rendering. */
+  tags: string[][];
   /** Unix seconds. */
   createdAt: number;
   /** Whether the current user authored it. */
