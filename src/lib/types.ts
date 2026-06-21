@@ -30,7 +30,7 @@ export interface LiveChatTab {
   id: string;
   /** Same as id; explicit for clarity at call sites. */
   streamAddr: string;
-  /** Relay URLs hosting this stream's kind-1311 chat (from the 30311/31237 "relays" tag). */
+  /** Optional relay hints from the 30311/31237 "relays" tag; empty uses shared relay/outbox routing. */
   chatRelays: string[];
   /** Display title (stream/station name). */
   title: string;
