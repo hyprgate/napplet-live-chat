@@ -3,6 +3,7 @@
   import type { LiveChatMessage } from '../lib/types';
   import type { ProfileContent } from '../lib/profile-metadata';
   import { timeAgo, fullTimestamp } from '../lib/time';
+  import NoteContent from '@hyprgate/napplet-ui/NoteContent.svelte';
 
   interface Props {
     message: LiveChatMessage;
@@ -43,6 +44,8 @@
         {timeAgo(message.createdAt, now)}
       </span>
     </div>
-    <p class="text-sm whitespace-pre-wrap break-words text-text-primary">{message.content}</p>
+    <div class="text-sm whitespace-pre-wrap break-words text-text-primary">
+      <NoteContent content={message.content} emojiTags={message.tags} />
+    </div>
   </div>
 </div>
