@@ -159,7 +159,7 @@
   async function handleSend(content: string) {
     if (!activeTab) return;
     try {
-      await store.sendChat(activeTab.streamAddr, content);
+      await store.sendChat(activeTab.streamAddr, content, activeTab.chatRelays);
     } catch (err) {
       store.state.error = `Send failed: ${err instanceof Error ? err.message : 'unknown error'}`;
       syncState();

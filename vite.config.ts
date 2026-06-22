@@ -4,7 +4,7 @@ import UnoCSS from '@unocss/vite';
 import { nip5aManifest } from '@napplet/vite-plugin';
 
 export default defineConfig({
-  plugins: [UnoCSS(), svelte(), nip5aManifest({ nappletType: 'live-chat', requires: ['identity', 'relay', 'inc', 'storage', 'notify', 'theme'], artifactMode: 'single-file' })],
+  plugins: [UnoCSS(), svelte(), nip5aManifest({ nappletType: 'live-chat', requires: ['identity', 'relay', 'inc', 'outbox', 'storage', 'notify', 'theme'], artifactMode: 'single-file' })],
   resolve: {
     dedupe: ['svelte'],
   },

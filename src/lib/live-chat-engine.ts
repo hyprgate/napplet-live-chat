@@ -5,7 +5,7 @@
 
 import { KIND_ZAP_RECEIPT, type NostrEvent } from '@hyprgate/types';
 import { parseZapReceipt } from '@hyprgate/utils';
-import { relay, type Subscription } from '@napplet/sdk';
+import { outbox, relay, type Subscription } from '@napplet/sdk';
 import { KIND_LIVE_CHAT, type LiveChatMessage, type LiveChatState, type LiveChatTab } from './types.js';
 
 export interface LiveChatContext {
@@ -14,6 +14,26 @@ export interface LiveChatContext {
   subs: Map<string, Subscription>;
   /** Fired after any state mutation that the UI should observe. */
   notify(): void;
+}
+
+interface NappletShellHandle {
+  supports(domain: string, protocol?: string): boolean;
+}
+
+function getShell(): NappletShellHandle | null {
+  return (globalThis as unknown as { napplet?: { shell?: NappletShellHandle } }).napplet?.shell ?? null;
+}
+
+function supportsOutbox(): boolean {
+  return getShell()?.supports('outbox') ?? false;
+}
+
+function normalizeRelays(relays: string[]): string[] {
+  return [...new Set(relays.filter((relayUrl) => relayUrl.startsWith('wss://')))];
+}
+
+function closeAll(subs: Subscription[]): void {
+  for (const sub of subs) sub.close();
 }
 
 /** Insert a message keeping the list sorted ascending by createdAt (newest at bottom). */
@@ -43,6 +63,7 @@ export function appendMessage(ctx: LiveChatContext, tab: LiveChatTab, msg: LiveC
 
 export function openSubscription(ctx: LiveChatContext, tab: LiveChatTab): void {
   if (ctx.subs.has(tab.id)) return;
+  const chatRelays = normalizeRelays(tab.chatRelays);
   const filters = [
     { kinds: [KIND_LIVE_CHAT], '#a': [tab.streamAddr] },
     { kinds: [KIND_ZAP_RECEIPT], '#a': [tab.streamAddr] },
@@ -52,12 +73,28 @@ export function openSubscription(ctx: LiveChatContext, tab: LiveChatTab): void {
     ctx.notify();
   };
   const onEvent = (event: NostrEvent): void => ingestEvent(ctx, event);
-  // Scope to the stream's own chat relay when known (NIP-53 "relays" tag);
-  // otherwise fall back to the shared pool.
-  const sub = tab.chatRelays.length > 0
-    ? relay.subscribe(filters, onEvent, onEose, { relay: tab.chatRelays[0], group: tab.streamAddr })
-    : relay.subscribe(filters, onEvent, onEose);
-  ctx.subs.set(tab.id, sub);
+  const subs: Subscription[] = [];
+
+  if (supportsOutbox()) {
+    const outboxSub = outbox.subscribe(filters, {
+      strategy: 'outbox',
+      live: true,
+      ...(chatRelays.length > 0 ? { relays: chatRelays } : {}),
+    });
+    outboxSub.on('event', (event) => onEvent(event as NostrEvent));
+    outboxSub.on('eose', onEose);
+    outboxSub.on('closed', onEose);
+    subs.push({ close: () => outboxSub.close() });
+  } else {
+    // Shared pool covers configured super relays; one scoped relay keeps legacy
+    // exact-chat-relay behavior for runtimes without NAP-OUTBOX.
+    subs.push(relay.subscribe(filters, onEvent, onEose));
+    if (chatRelays[0]) {
+      subs.push(relay.subscribe(filters, onEvent, onEose, { relay: chatRelays[0], group: tab.streamAddr }));
+    }
+  }
+
+  ctx.subs.set(tab.id, { close: () => closeAll(subs) });
 }
 
 export function closeSubscription(ctx: LiveChatContext, tabId: string): void {
@@ -145,15 +182,27 @@ export function closeTab(ctx: LiveChatContext, tabId: string): void {
   ctx.notify();
 }
 
-export async function sendChat(streamAddr: string, content: string): Promise<void> {
+export async function sendChat(streamAddr: string, content: string, chatRelays: string[] = []): Promise<void> {
   const trimmed = content.trim();
   if (!trimmed) return;
-  await relay.publish({
+  const template = {
     kind: KIND_LIVE_CHAT,
     content: trimmed,
     tags: [['a', streamAddr]],
     created_at: Math.floor(Date.now() / 1000),
-  });
+  };
+  const relayHints = normalizeRelays(chatRelays);
+
+  if (supportsOutbox()) {
+    const result = await outbox.publish(template, {
+      strategy: 'outbox',
+      ...(relayHints.length > 0 ? { relays: relayHints } : {}),
+    });
+    if (!result.ok) throw new Error(result.error ?? 'outbox publish failed');
+    return;
+  }
+
+  await relay.publish(template);
 }
 
 function ingestZap(ctx: LiveChatContext, event: NostrEvent): void {
