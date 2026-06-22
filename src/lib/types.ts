@@ -74,7 +74,7 @@ export interface LiveChatStore {
   /** Ingest a relay event (kind 1311 chat or kind 9735 zap). Exposed for tests. */
   ingestEvent(event: NostrEvent): void;
   /** Publish a kind-1311 chat message to a stream. */
-  sendChat(streamAddr: string, content: string): Promise<void>;
+  sendChat(streamAddr: string, content: string, chatRelays?: string[]): Promise<void>;
   /** Close every open subscription. */
   destroy(): void;
 }

@@ -7,13 +7,19 @@ import { KIND_ZAP_RECEIPT, KIND_ZAP_REQUEST } from '@hyprgate/types';
 import { createLiveChatStore } from './live-chat-store';
 
 vi.mock('@napplet/sdk', () => ({
+  outbox: {
+    subscribe: vi.fn().mockReturnValue({ on: vi.fn(), close: vi.fn() }),
+    publish: vi.fn().mockResolvedValue({ ok: true }),
+  },
   relay: {
     subscribe: vi.fn().mockReturnValue({ close: vi.fn() }),
     publish: vi.fn().mockResolvedValue({}),
   },
 }));
 
-import { relay } from '@napplet/sdk';
+import { outbox, relay } from '@napplet/sdk';
+const mockOutboxSubscribe = vi.mocked(outbox.subscribe);
+const mockOutboxPublish = vi.mocked(outbox.publish);
 const mockSubscribe = vi.mocked(relay.subscribe);
 const mockPublish = vi.mocked(relay.publish);
 
@@ -43,22 +49,63 @@ function zapEvent(id: string, createdAt: number, sats: number, sender = 'zapper1
 }
 
 beforeEach(() => {
+  delete (globalThis as { napplet?: unknown }).napplet;
+  mockOutboxSubscribe.mockClear();
+  mockOutboxPublish.mockClear();
+  mockOutboxSubscribe.mockReturnValue({ on: vi.fn(), close: vi.fn() } as ReturnType<typeof outbox.subscribe>);
+  mockOutboxPublish.mockResolvedValue({ ok: true });
   mockSubscribe.mockClear();
   mockPublish.mockClear();
   mockSubscribe.mockReturnValue({ close: vi.fn() });
 });
 
+function setOutboxSupport(supported: boolean): void {
+  (globalThis as unknown as { napplet: { shell: { supports: (domain: string) => boolean } } }).napplet = {
+    shell: {
+      supports: (domain: string) => domain === 'outbox' && supported,
+    },
+  };
+}
+
 describe('createLiveChatStore', () => {
-  it('openStream creates a tab, opens a subscription, and prepends newest first', () => {
+  it('openStream creates a tab, opens subscriptions, and prepends newest first', () => {
     const store = createLiveChatStore();
     store.openStream(STREAM, 'Cool Stream', ['wss://relay.example']);
     store.openStream('30311:other:x', 'Other', []);
 
     expect(store.state.tabs.map((t) => t.id)).toEqual(['30311:other:x', STREAM]);
-    expect(mockSubscribe).toHaveBeenCalledTimes(2);
+    expect(mockSubscribe).toHaveBeenCalledTimes(3);
     // First tab subscribed scoped to its chat relay.
-    const firstCallOpts = mockSubscribe.mock.calls[0]![3] as { relay?: string } | undefined;
-    expect(firstCallOpts?.relay).toBe('wss://relay.example');
+    const exactRelayCall = mockSubscribe.mock.calls.find((call) => (call[3] as { relay?: string } | undefined)?.relay === 'wss://relay.example');
+    expect(exactRelayCall).toBeDefined();
+    expect(mockSubscribe.mock.calls.some((call) => call[3] === undefined)).toBe(true);
+  });
+
+  it('uses outbox live subscription with all advertised chat relay hints when supported', () => {
+    setOutboxSupport(true);
+    const store = createLiveChatStore();
+    store.openStream(STREAM, 'Cool Stream', ['wss://chat-a.example', 'wss://chat-b.example']);
+
+    expect(mockOutboxSubscribe).toHaveBeenCalledTimes(1);
+    expect(mockOutboxSubscribe).toHaveBeenCalledWith(
+      [
+        { kinds: [1311], '#a': [STREAM] },
+        { kinds: [KIND_ZAP_RECEIPT], '#a': [STREAM] },
+      ],
+      { strategy: 'outbox', live: true, relays: ['wss://chat-a.example', 'wss://chat-b.example'] },
+    );
+    expect(mockSubscribe).not.toHaveBeenCalled();
+  });
+
+  it('falls back to shared relay plus first exact chat relay when outbox is unsupported', () => {
+    setOutboxSupport(false);
+    const store = createLiveChatStore();
+    store.openStream(STREAM, 'Cool Stream', ['wss://chat-a.example', 'wss://chat-b.example']);
+
+    expect(mockOutboxSubscribe).not.toHaveBeenCalled();
+    expect(mockSubscribe).toHaveBeenCalledTimes(2);
+    expect(mockSubscribe.mock.calls[0]![3]).toBeUndefined();
+    expect(mockSubscribe.mock.calls[1]![3]).toEqual({ relay: 'wss://chat-a.example', group: STREAM });
   });
 
   it('re-opening an existing stream returns the same tab without duplicating', () => {
@@ -154,5 +201,22 @@ describe('createLiveChatStore', () => {
     expect(published.kind).toBe(1311);
     expect(published.content).toBe('hello world');
     expect(published.tags).toContainEqual(['a', STREAM]);
+  });
+
+  it('sendChat uses outbox publish with all advertised chat relay hints when supported', async () => {
+    setOutboxSupport(true);
+    const store = createLiveChatStore();
+    await store.sendChat(STREAM, '  hello world  ', ['wss://chat-a.example', 'wss://chat-b.example']);
+
+    expect(mockOutboxPublish).toHaveBeenCalledTimes(1);
+    expect(mockOutboxPublish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 1311,
+        content: 'hello world',
+        tags: [['a', STREAM]],
+      }),
+      { strategy: 'outbox', relays: ['wss://chat-a.example', 'wss://chat-b.example'] },
+    );
+    expect(mockPublish).not.toHaveBeenCalled();
   });
 });
