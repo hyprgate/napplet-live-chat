@@ -99,11 +99,11 @@ export function subscribeProfileMetadata(
     if (closed) return;
     if (shell?.supports('outbox') ?? false) {
       const sub = outbox.subscribe(filters, { strategy: 'outbox', live: false });
-      sub.on('event', (event) => handleEvent(event as NostrEvent));
-      sub.on('eose', handleEose);
+      sub.on('event', (result) => handleEvent(result.event as NostrEvent));
+      sub.on('closed', handleEose);
       subscription = { close: () => sub.close() };
     } else {
-      subscription = relay.subscribe(filters, (event) => handleEvent(event as NostrEvent), handleEose);
+      subscription = relay.subscribe(filters, (result) => handleEvent(result.event as NostrEvent), handleEose);
     }
     if (closeWhenReady) subscription.close();
   })();

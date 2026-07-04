@@ -81,16 +81,15 @@ export function openSubscription(ctx: LiveChatContext, tab: LiveChatTab): void {
       live: true,
       ...(chatRelays.length > 0 ? { relays: chatRelays } : {}),
     });
-    outboxSub.on('event', (event) => onEvent(event as NostrEvent));
-    outboxSub.on('eose', onEose);
+    outboxSub.on('event', (result) => onEvent(result.event as NostrEvent));
     outboxSub.on('closed', onEose);
     subs.push({ close: () => outboxSub.close() });
   } else {
     // Shared pool covers configured super relays; one scoped relay keeps legacy
     // exact-chat-relay behavior for runtimes without NAP-OUTBOX.
-    subs.push(relay.subscribe(filters, onEvent, onEose));
+    subs.push(relay.subscribe(filters, (result) => onEvent(result.event as NostrEvent), onEose));
     if (chatRelays[0]) {
-      subs.push(relay.subscribe(filters, onEvent, onEose, { relay: chatRelays[0], group: tab.streamAddr }));
+      subs.push(relay.subscribe(filters, (result) => onEvent(result.event as NostrEvent), onEose, { relay: chatRelays[0], group: tab.streamAddr }));
     }
   }
 
