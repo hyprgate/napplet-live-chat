@@ -76,11 +76,10 @@ export function openSubscription(ctx: LiveChatContext, tab: LiveChatTab): void {
   const subs: Subscription[] = [];
 
   if (supportsOutbox()) {
-    const outboxSub = outbox.subscribe(filters, {
-      strategy: 'outbox',
-      live: true,
-      ...(chatRelays.length > 0 ? { relays: chatRelays } : {}),
-    });
+    const outboxSub = outbox.subscribe(
+      filters,
+      chatRelays.length > 0 ? { relays: chatRelays } : undefined,
+    );
     outboxSub.on('event', (result) => onEvent(result.event as NostrEvent));
     outboxSub.on('closed', onEose);
     subs.push({ close: () => outboxSub.close() });
@@ -193,10 +192,10 @@ export async function sendChat(streamAddr: string, content: string, chatRelays: 
   const relayHints = normalizeRelays(chatRelays);
 
   if (supportsOutbox()) {
-    const result = await outbox.publish(template, {
-      strategy: 'outbox',
-      ...(relayHints.length > 0 ? { relays: relayHints } : {}),
-    });
+    const result = await outbox.publish(
+      template,
+      relayHints.length > 0 ? { relays: relayHints } : undefined,
+    );
     if (!result.ok) throw new Error(result.error ?? 'outbox publish failed');
     return;
   }

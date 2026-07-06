@@ -92,7 +92,7 @@ describe('createLiveChatStore', () => {
         { kinds: [1311], '#a': [STREAM] },
         { kinds: [KIND_ZAP_RECEIPT], '#a': [STREAM] },
       ],
-      { strategy: 'outbox', live: true, relays: ['wss://chat-a.example', 'wss://chat-b.example'] },
+      { relays: ['wss://chat-a.example', 'wss://chat-b.example'] },
     );
     expect(mockSubscribe).not.toHaveBeenCalled();
   });
@@ -215,7 +215,7 @@ describe('createLiveChatStore', () => {
         content: 'hello world',
         tags: [['a', STREAM]],
       }),
-      { strategy: 'outbox', relays: ['wss://chat-a.example', 'wss://chat-b.example'] },
+      { relays: ['wss://chat-a.example', 'wss://chat-b.example'] },
     );
     expect(mockPublish).not.toHaveBeenCalled();
   });
