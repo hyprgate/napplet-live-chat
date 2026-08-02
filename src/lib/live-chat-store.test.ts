@@ -81,7 +81,7 @@ describe('createLiveChatStore', () => {
     expect(mockSubscribe.mock.calls.some((call) => call[3] === undefined)).toBe(true);
   });
 
-  it('uses outbox live subscription with all advertised chat relay hints when supported', () => {
+  it('uses outbox live subscription plus the first exact chat relay when supported', () => {
     setOutboxSupport(true);
     const store = createLiveChatStore();
     store.openStream(STREAM, 'Cool Stream', ['wss://chat-a.example', 'wss://chat-b.example']);
@@ -92,9 +92,9 @@ describe('createLiveChatStore', () => {
         { kinds: [1311], '#a': [STREAM] },
         { kinds: [KIND_ZAP_RECEIPT], '#a': [STREAM] },
       ],
-      { relays: ['wss://chat-a.example', 'wss://chat-b.example'] },
     );
-    expect(mockSubscribe).not.toHaveBeenCalled();
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    expect(mockSubscribe.mock.calls[0]![3]).toEqual({ relay: 'wss://chat-a.example', group: STREAM });
   });
 
   it('falls back to shared relay plus first exact chat relay when outbox is unsupported', () => {
@@ -215,7 +215,7 @@ describe('createLiveChatStore', () => {
         content: 'hello world',
         tags: [['a', STREAM]],
       }),
-      { relays: ['wss://chat-a.example', 'wss://chat-b.example'] },
+      { relays: ['wss://chat-a.example', 'wss://chat-b.example'], toOutbox: false },
     );
     expect(mockPublish).not.toHaveBeenCalled();
   });

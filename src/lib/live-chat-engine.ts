@@ -8,6 +8,14 @@ import { parseZapReceipt } from '@hyprgate/utils';
 import { outbox, relay, type Subscription } from '@napplet/sdk';
 import { KIND_LIVE_CHAT, type LiveChatMessage, type LiveChatState, type LiveChatTab } from './types.js';
 
+// The shell already accepts the current NAP explicit-fanout fields; published
+// SDK typings still lag that wire contract. Keeping the extension local lets
+// the normal SDK options remain checked while the registry catches up.
+type ExplicitFanoutPublishOptions = NonNullable<Parameters<typeof outbox.publish>[1]> & {
+  toOutbox?: boolean;
+  toInboxes?: string[];
+};
+
 export interface LiveChatContext {
   state: LiveChatState;
   /** Open relay subscriptions keyed by tab id. */
@@ -34,6 +42,12 @@ function normalizeRelays(relays: string[]): string[] {
 
 function closeAll(subs: Subscription[]): void {
   for (const sub of subs) sub.close();
+}
+
+function eventFromOutbox(result: NostrEvent | { event: NostrEvent }): NostrEvent {
+  return typeof result === 'object' && result !== null && 'event' in result
+    ? result.event
+    : result as NostrEvent;
 }
 
 /** Insert a message keeping the list sorted ascending by createdAt (newest at bottom). */
@@ -76,13 +90,13 @@ export function openSubscription(ctx: LiveChatContext, tab: LiveChatTab): void {
   const subs: Subscription[] = [];
 
   if (supportsOutbox()) {
-    const outboxSub = outbox.subscribe(
-      filters,
-      chatRelays.length > 0 ? { relays: chatRelays } : undefined,
-    );
-    outboxSub.on('event', (result) => onEvent(result.event as NostrEvent));
+    const outboxSub = outbox.subscribe(filters);
+    outboxSub.on('event', (result) => onEvent(eventFromOutbox(result as NostrEvent | { event: NostrEvent })));
     outboxSub.on('closed', onEose);
     subs.push({ close: () => outboxSub.close() });
+    if (chatRelays[0]) {
+      subs.push(relay.subscribe(filters, (result) => onEvent(result.event as NostrEvent), onEose, { relay: chatRelays[0], group: tab.streamAddr }));
+    }
   } else {
     // Shared pool covers configured super relays; one scoped relay keeps legacy
     // exact-chat-relay behavior for runtimes without NAP-OUTBOX.
@@ -192,9 +206,12 @@ export async function sendChat(streamAddr: string, content: string, chatRelays: 
   const relayHints = normalizeRelays(chatRelays);
 
   if (supportsOutbox()) {
+    const publishOptions: ExplicitFanoutPublishOptions | undefined = relayHints.length > 0
+      ? { relays: relayHints, toOutbox: false }
+      : undefined;
     const result = await outbox.publish(
       template,
-      relayHints.length > 0 ? { relays: relayHints } : undefined,
+      publishOptions,
     );
     if (!result.ok) throw new Error(result.error ?? 'outbox publish failed');
     return;

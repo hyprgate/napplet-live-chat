@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { inc as ipc, identity } from '@napplet/sdk';
+  import { inc, identity } from '@napplet/sdk';
   import type { Subscription } from '@napplet/sdk';
   import {
     IDENTITY_CHANGED_TOPIC,
@@ -107,24 +107,24 @@
         syncState();
       }
     };
-    identitySub = ipc.on(IDENTITY_CHANGED_TOPIC, handleIdentityChanged);
-    legacyIdentitySub = ipc.on(LEGACY_AUTH_IDENTITY_CHANGED_TOPIC, handleIdentityChanged);
+    identitySub = inc.on(IDENTITY_CHANGED_TOPIC, (event) => handleIdentityChanged(event.payload));
+    legacyIdentitySub = inc.on(LEGACY_AUTH_IDENTITY_CHANGED_TOPIC, (event) => handleIdentityChanged(event.payload));
 
-    // Auto-on-switch (req 4): stream/radio emit NUB-02 stream:channel-switch.
-    channelSwitchSub = ipc.on('stream:channel-switch', openFromPayload);
-    legacyChannelSwitchSub = ipc.on('livestream:channel-switch', openFromPayload);
+    // Auto-on-switch (req 4): stream/radio emit the canonical INC topic.
+    channelSwitchSub = inc.on('stream:channel-switch', (event) => openFromPayload(event.payload));
+    legacyChannelSwitchSub = inc.on('livestream:channel-switch', (event) => openFromPayload(event.payload));
 
     // Pull-on-mount: when Live Chat opens (launcher, hotkey, or the player
     // "Open chat" button), ask the currently-playing stream/radio napplet for
     // its chat context so the active stream's tab appears immediately.
-    currentContextSub = ipc.on('stream:current-context', (payload) => {
-      const context = parseStreamCurrentContextPayload(payload);
+    currentContextSub = inc.on('stream:current-context', (event) => {
+      const context = parseStreamCurrentContextPayload(event.payload);
       if (!context) return;
       const tabId = store.openStream(context.streamAddr, context.title, context.chatRelays);
       store.switchToTab(tabId);
       syncState();
     });
-    ipc.emit('stream:current-context-get', [], JSON.stringify({ requestId: crypto.randomUUID() }));
+    inc.emit('stream:current-context-get', JSON.stringify({ requestId: crypto.randomUUID() }));
 
     nowTimer = setInterval(() => { now = Date.now(); }, 30_000);
 
