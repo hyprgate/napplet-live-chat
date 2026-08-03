@@ -20,19 +20,16 @@
 </script>
 
 <div class="flex items-start gap-2 px-3 py-1 hover:bg-bg-surface/40">
-  <!-- Avatar (req 11): picture if known, else a color-keyed initial block. -->
-  {#if profile?.picture}
-    <!-- External avatar via NAP-RESOURCE: the napplet CSP is img-src data: blob:,
-         so resourceImage proxies the fetch through the shell and yields a blob URL. -->
-    <img use:resourceImage={profile.picture} alt="" class="w-6 h-6 rounded-full object-cover flex-shrink-0 mt-0.5 bg-bg-surface" loading="lazy" />
-  {:else}
-    <div
-      class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono flex-shrink-0 mt-0.5 bg-bg-surface"
-      style={pubkeyColorStyle(message.pubkey)}
-    >
-      {initial}
-    </div>
-  {/if}
+  <!-- Keep the fallback beneath the resource image so failed remote avatars stay useful. -->
+  <div
+    class="grid w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mt-0.5 bg-bg-surface"
+    style={pubkeyColorStyle(message.pubkey)}
+  >
+    <span class="col-start-1 row-start-1 flex items-center justify-center text-xs font-mono">{initial}</span>
+    {#if profile?.picture}
+      <img use:resourceImage={profile.picture} alt="" class="col-start-1 row-start-1 w-full h-full object-cover" loading="lazy" />
+    {/if}
+  </div>
 
   <div class="min-w-0 flex-1">
     <div class="flex items-baseline gap-2">
