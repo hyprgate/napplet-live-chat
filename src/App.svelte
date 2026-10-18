@@ -3,9 +3,6 @@
   import { inc, identity } from '@napplet/sdk';
   import type { Subscription } from '@napplet/sdk';
   import {
-    IDENTITY_CHANGED_TOPIC,
-    LEGACY_AUTH_IDENTITY_CHANGED_TOPIC,
-    parseIdentityChangedPayload,
     parseStreamChannelSwitchPayload,
     waitForPublicKey,
   } from '@hyprgate/utils';
@@ -77,7 +74,6 @@
 
   // ── Inter-pane subscriptions ────────────────────────────────────────────────
   let identitySub: Subscription | null = null;
-  let legacyIdentitySub: Subscription | null = null;
   let channelSwitchSub: Subscription | null = null;
   let legacyChannelSwitchSub: Subscription | null = null;
   let currentContextSub: Subscription | null = null;
@@ -100,15 +96,13 @@
   onMount(() => {
     identityInitController = new AbortController();
 
-    const handleIdentityChanged = (payload: unknown) => {
-      const pk = parseIdentityChangedPayload(payload)?.pubkey ?? null;
+    const handleIdentityChanged = (pk: string) => {
       if (pk && pk !== store.state.myPubkey) {
         store.init(pk);
         syncState();
       }
     };
-    identitySub = inc.on(IDENTITY_CHANGED_TOPIC, (event) => handleIdentityChanged(event.payload));
-    legacyIdentitySub = inc.on(LEGACY_AUTH_IDENTITY_CHANGED_TOPIC, (event) => handleIdentityChanged(event.payload));
+    identitySub = identity.onChanged(handleIdentityChanged);
 
     // Auto-on-switch (req 4): stream/radio emit the canonical INC topic.
     channelSwitchSub = inc.on('stream:channel-switch', (event) => openFromPayload(event.payload));
@@ -135,7 +129,6 @@
     identityInitController?.abort();
     store.destroy();
     identitySub?.close();
-    legacyIdentitySub?.close();
     channelSwitchSub?.close();
     legacyChannelSwitchSub?.close();
     currentContextSub?.close();
