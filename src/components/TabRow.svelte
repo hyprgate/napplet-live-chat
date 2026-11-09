@@ -14,7 +14,7 @@
 
 <!-- Horizontal, scrollable strip of open stream-chat tabs. New tabs are prepended
      (newest stream first) by the store on channel switch. -->
-<div class="flex items-stretch h-10 border-b border-border-dim bg-bg-surface flex-shrink-0 overflow-x-auto scrollbar-none">
+<div role="tablist" aria-label="Open chats" class="flex items-stretch h-10 border-b border-border-dim bg-bg-surface flex-shrink-0 overflow-x-auto scrollbar-none">
   {#each tabs as tab (tab.id)}
     <TabItem
       {tab}

@@ -19,12 +19,16 @@
 
 <div
   class="absolute bottom-12 right-2 z-10 w-56 max-h-48 overflow-y-auto p-2 rounded border border-border-dim bg-bg-elevated shadow-lg grid grid-cols-8 gap-1"
-  role="menu"
+  role="group"
+  aria-label="Pick an emoji"
   tabindex="-1"
   onmouseleave={onclose}
+  onkeydown={(e) => { if (e.key === 'Escape') onclose(); }}
 >
   {#each EMOJI as emoji (emoji)}
     <button
+      type="button"
+      aria-label={emoji}
       class="text-lg leading-none p-1 rounded hover:bg-bg-surface cursor-pointer"
       onclick={() => onpick(emoji)}
       title={emoji}

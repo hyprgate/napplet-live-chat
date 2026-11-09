@@ -4,46 +4,30 @@
 > Do not push commits to this standalone napplet repository; direct changes are overwritten by Hyprgate's mirror workflow.
 <!-- HYPRGATE NAPPLET MIRROR NOTICE:END -->
 
-# napplet-live-chat
+# Live Chat
 
-[![CI](https://github.com/hyprgate/napplet-live-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/hyprgate/napplet-live-chat/actions/workflows/ci.yml)
+Chat and zaps for whatever stream or radio station you're playing, using NIP-53 live chat
+(kind 1311) and zap receipts (kind 9735). Each open stream gets a tab, and background tabs keep
+counting unread messages.
 
-Forkable source repository for the Hyprgate built-in napplet currently packaged as `@hyprgate/napp-live-chat`.
+Package: `@hyprgate/napp-live-chat`. Source lives in the Hyprgate monorepo at
+`napplets/live-chat`. The standalone `hyprgate/napplet-live-chat` repository is a generated,
+read-only mirror, so send changes to `hyprgate/web`.
 
-This repository was split from `hyprgate/gui` and is mounted back into the parent checkout as `napplets/live-chat`.
-It still expects the parent workspace when built through Hyprgate because shared `@hyprgate/*` packages remain workspace dependencies.
+## How it gets a stream
 
-## Parent checkout
+There's no picker in the app. It listens for `stream:channel-switch` from Stream and Radio, and
+when it opens it asks with `stream:current-context-get`. The shell's player also has an Open chat
+button that passes the context directly.
+
+## Working on it
+
+Run these from the Hyprgate checkout so `workspace:*` packages resolve:
 
 ```bash
-git clone --recurse-submodules git@github.com:hyprgate/gui.git
-cd gui
 pnpm install --frozen-lockfile
-pnpm --filter @hyprgate/napp-live-chat build
+pnpm --filter ./napplets/live-chat paja        # Kehto Paja plus the Vite dev server
+pnpm --filter ./napplets/live-chat exec vitest run
+pnpm --filter ./napplets/live-chat type-check
+pnpm --filter ./napplets/live-chat conformance # builds, then checks dist/
 ```
-
-## Paja runtime
-
-```bash
-pnpm --filter @hyprgate/napp-live-chat paja
-```
-
-This starts Kehto Paja and the napplet's Vite dev server together, using
-the port configured in `vite.config.ts`.
-
-## Testing
-
-Run these checks from a Hyprgate parent checkout so workspace dependencies resolve:
-
-```bash
-git clone --recurse-submodules git@github.com:hyprgate/gui.git
-cd gui
-pnpm install --frozen-lockfile
-pnpm --filter @hyprgate/napp-live-chat conformance
-pnpm --filter @hyprgate/napp-live-chat test
-pnpm --filter @hyprgate/napp-live-chat build
-```
-
-The `conformance` script builds the napplet and runs `@napplet/conformance-cli` against `dist/`. CI runs the same conformance, unit test, and build checks for every push and pull request.
-
-CI runs from the standalone napplet repository but checks out `hyprgate/gui` to resolve private `workspace:*` packages. Configure `HYPRGATE_GUI_CHECKOUT_TOKEN` with read access to `hyprgate/gui` before enabling GitHub Actions.

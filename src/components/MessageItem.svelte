@@ -1,48 +1,72 @@
 <script lang="ts">
-  import { pubkeyColorStyle, resourceImage } from '@hyprgate/utils';
   import type { LiveChatMessage } from '../lib/types';
   import type { ProfileContent } from '../lib/profile-metadata';
   import { timeAgo, fullTimestamp } from '../lib/time';
   import NoteContent from '@hyprgate/napplet-ui/NoteContent.svelte';
+  import PersonButton from './PersonButton.svelte';
 
   interface Props {
     message: LiveChatMessage;
     profile?: ProfileContent;
     now: number;
+    /** The same person said the line above, so don't repeat who they are. */
+    continued?: boolean;
+    onperson?: (pubkey: string) => void;
   }
 
-  let { message, profile, now }: Props = $props();
-
-  let displayName = $derived(
-    profile?.display_name || profile?.name || `${message.pubkey.slice(0, 8)}…`,
-  );
-  let initial = $derived((profile?.display_name || profile?.name || message.pubkey).slice(0, 1).toUpperCase());
+  let { message, profile, now, continued = false, onperson }: Props = $props();
 </script>
 
-<div class="flex items-start gap-2 px-3 py-1 hover:bg-bg-surface/40">
-  <!-- Keep the fallback beneath the resource image so failed remote avatars stay useful. -->
-  <div
-    class="grid w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mt-0.5 bg-bg-surface"
-    style={pubkeyColorStyle(message.pubkey)}
-  >
-    <span class="col-start-1 row-start-1 flex items-center justify-center text-xs font-mono">{initial}</span>
-    {#if profile?.picture}
-      <img use:resourceImage={profile.picture} alt="" class="col-start-1 row-start-1 w-full h-full object-cover" loading="lazy" />
-    {/if}
-  </div>
-
-  <div class="min-w-0 flex-1">
-    <div class="flex items-baseline gap-2">
-      <span class="text-xs font-mono font-semibold truncate" style={pubkeyColorStyle(message.pubkey)}>
-        {displayName}
-      </span>
+<div class="line hover:bg-bg-surface/40" class:continued class:own={message.isOwn} data-chat-line>
+  {#if !continued}
+    <div class="line-head">
+      <PersonButton pubkey={message.pubkey} {profile} onopen={onperson} />
+      {#if message.isOwn}
+        <span class="own-tag">You</span>
+      {/if}
       <!-- Time-ago (req 12); full datetime on hover. -->
-      <span class="text-[10px] font-mono text-text-dim flex-shrink-0" title={fullTimestamp(message.createdAt)}>
-        {timeAgo(message.createdAt, now)}
-      </span>
+      <span class="stamp" title={fullTimestamp(message.createdAt)}>{timeAgo(message.createdAt, now)}</span>
     </div>
-    <div class="text-sm whitespace-pre-wrap break-words text-text-primary">
-      <NoteContent content={message.content} emojiTags={message.tags} />
-    </div>
+  {/if}
+  <div class="line-body text-sm whitespace-pre-wrap break-words text-text-primary">
+    <NoteContent content={message.content} emojiTags={message.tags} />
   </div>
 </div>
+
+<style>
+  .line {
+    padding: 8px 12px 0 12px;
+    border-left: 2px solid transparent;
+  }
+
+  .line.continued {
+    padding-top: 2px;
+  }
+
+  .line.own {
+    border-left-color: var(--hg-accent-green, #70f0a0);
+  }
+
+  .line-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .line-body {
+    padding-left: 32px;
+    line-height: 1.4;
+  }
+
+  .own-tag,
+  .stamp {
+    flex: none;
+    font-size: 11px;
+    color: var(--hg-text-muted, #b8b1a4);
+  }
+
+  .stamp {
+    opacity: 0.8;
+  }
+</style>

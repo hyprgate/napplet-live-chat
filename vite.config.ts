@@ -10,7 +10,7 @@ export default defineConfig({
     svelte(),
     nip5aManifest({
       nappletType: 'live-chat',
-      requires: ['identity', 'relay', 'inc', 'outbox', 'storage'],
+      requires: ['identity', 'relay', 'inc', 'outbox', 'storage', 'intent'],
       optional: ['theme'],
       icon: { data: readFileSync(new URL('./icon.png', import.meta.url)), mimeType: 'image/png' },
       artifactMode: 'single-file',

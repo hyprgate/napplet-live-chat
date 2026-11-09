@@ -3,12 +3,15 @@
   import { inc, identity } from '@napplet/sdk';
   import type { Subscription } from '@napplet/sdk';
   import {
+    createProfileIntentRequest,
+    invokeNappletIntent,
     parseStreamChannelSwitchPayload,
     waitForPublicKey,
   } from '@hyprgate/utils';
   import { createLiveChatStore } from './lib/live-chat-store';
   import { parseStreamCurrentContextPayload } from './lib/stream-context-payload';
   import type { LiveChatTab } from './lib/types';
+  import { sendFailureMessage } from './lib/identity';
   import { subscribeProfileMetadata, type ProfileContent } from './lib/profile-metadata';
   import TabRow from './components/TabRow.svelte';
   import MessageList from './components/MessageList.svelte';
@@ -20,6 +23,7 @@
   let activeTab = $state<LiveChatTab | null>(null);
   let activeTabId = $state<string | null>(null);
   let error = $state<string | null>(null);
+  let signedIn = $state(false);
   // Ticks every 30s so relative timestamps stay fresh.
   let now = $state(Date.now());
 
@@ -28,6 +32,7 @@
     activeTabId = store.state.activeTabId;
     activeTab = activeTabId ? store.state.tabs.find((t) => t.id === activeTabId) ?? null : null;
     error = store.state.error;
+    signedIn = store.state.myPubkey !== null;
   }
 
   const store = createLiveChatStore(syncState);
@@ -149,35 +154,54 @@
   function handleSelectTab(tabId: string) { store.switchToTab(tabId); syncState(); }
   function handleCloseTab(tabId: string) { store.closeTab(tabId); syncState(); }
 
-  async function handleSend(content: string) {
-    if (!activeTab) return;
+  async function handleSend(content: string): Promise<boolean> {
+    if (!activeTab) return false;
     try {
       await store.sendChat(activeTab.streamAddr, content, activeTab.chatRelays);
-    } catch (err) {
-      store.state.error = `Send failed: ${err instanceof Error ? err.message : 'unknown error'}`;
+      store.state.error = null;
       syncState();
+      return true;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : '';
+      store.state.error = sendFailureMessage(reason);
+      syncState();
+      return false;
     }
+  }
+
+  function openPerson(pubkey: string): void {
+    const request = createProfileIntentRequest({ pubkey });
+    if (!request) return;
+    void invokeNappletIntent(request).catch((err) => {
+      console.warn('[live-chat] profile open failed', err);
+    });
   }
 </script>
 
-<div class="app h-screen w-screen overflow-hidden bg-bg-base text-text-primary font-mono flex flex-col">
+<div class="app relative h-screen w-screen overflow-hidden bg-bg-base text-text-primary font-mono flex flex-col">
   {#if tabs.length > 0}
     <TabRow {tabs} {activeTabId} onselecttab={handleSelectTab} onclosetab={handleCloseTab} />
   {/if}
 
-  <div class="flex-1 overflow-hidden flex flex-col">
+  <div class="flex-1 min-h-0 overflow-hidden flex flex-col">
     {#if activeTab}
-      <MessageList messages={activeTab.messages} {profiles} {now} />
-      <ComposeInput placeholder={`Chat in ${activeTab.title}…`} onsend={handleSend} />
+      {#key activeTab.id}
+        <MessageList messages={activeTab.messages} {profiles} {now} onperson={openPerson} />
+      {/key}
+      <ComposeInput
+        placeholder={`Chat in ${activeTab.title}…`}
+        onsend={handleSend}
+        unavailable={signedIn ? null : 'Sign in to join the chat. You can still read along.'}
+      />
     {:else}
       <EmptyState />
     {/if}
   </div>
 
   {#if error}
-    <div class="absolute bottom-16 left-0 right-0 mx-3 px-3 py-2 bg-bg-surface border border-accent-red/40 rounded text-accent-red text-xs font-mono">
-      {error}
-      <button class="ml-2 text-text-dim hover:text-text-primary cursor-pointer" onclick={() => { store.state.error = null; syncState(); }}>[x]</button>
+    <div class="absolute bottom-16 left-0 right-0 mx-3 px-3 py-2 flex items-start gap-2 bg-bg-surface border border-accent-red/40 rounded text-accent-red text-xs font-mono" role="alert">
+      <span class="flex-1 min-w-0 break-words">{error}</span>
+      <button type="button" class="flex-none text-text-muted hover:text-text-primary cursor-pointer" aria-label="Dismiss" onclick={() => { store.state.error = null; syncState(); }}>✕</button>
     </div>
   {/if}
 </div>
